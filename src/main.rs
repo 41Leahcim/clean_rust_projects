@@ -1,15 +1,32 @@
+#![warn(clippy::pedantic, clippy::nursery, clippy::restriction)]
+#![allow(
+    clippy::missing_docs_in_private_items,
+    clippy::blanket_clippy_restriction_lints,
+    clippy::implicit_return,
+    clippy::print_stdout,
+    clippy::question_mark_used,
+    clippy::use_debug,
+    clippy::else_if_without_else,
+    clippy::unwrap_used,
+    clippy::print_stderr,
+    clippy::min_ident_chars,
+    clippy::allow_attributes_without_reason,
+    clippy::arbitrary_source_item_ordering
+)]
+
 use std::{
     env::args,
-    fmt::Debug,
     fs::{self, DirEntry},
     io,
     path::PathBuf,
 };
 
+use core::fmt::{self, Debug, Formatter};
+
 struct FailedToRemoveError(PathBuf);
 
 impl Debug for FailedToRemoveError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         writeln!(f, "Failed to remove directory: {:?}", self.0)
     }
 }
@@ -19,18 +36,24 @@ struct RustProject {
     target: Option<PathBuf>,
 }
 
+#[expect(clippy::single_call_fn)]
 fn process_entry(entry: &DirEntry, too_explore: &mut Vec<PathBuf>, project: &mut RustProject) {
+    // Take the metadata
+    let Ok(metadata) = entry.metadata() else {
+        return;
+    };
+
     // Take the name of the file
     let file_name = entry.file_name();
 
     // If it's a Cargo.toml file, this directory is a project root
-    if file_name == "Cargo.toml" {
+    if metadata.is_file() && file_name == "Cargo.toml" {
         project.root = true;
         return;
     }
 
     // Skip all other entries that aren't directory
-    if !entry.metadata().is_ok_and(|data| data.is_dir()) {
+    if !metadata.is_dir() {
         return;
     }
 
@@ -71,7 +94,7 @@ fn remove_target_directories(path: PathBuf) -> Result<(), FailedToRemoveError> {
         // If it's found anywhere else, we add it to the diretories to explore.
         if let Some(target) = project.target.as_ref().filter(|_| project.root) {
             println!("{target:?}");
-            fs::remove_dir_all(target).map_err(|_| FailedToRemoveError(target.to_owned()))?;
+            fs::remove_dir_all(target).map_err(|_error| FailedToRemoveError(target.to_owned()))?;
         } else if let Some(target) = project.target {
             too_explore.push(target);
         }
