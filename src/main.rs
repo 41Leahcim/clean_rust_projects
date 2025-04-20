@@ -92,11 +92,14 @@ fn remove_target_directories(path: PathBuf) -> Result<(), FailedToRemoveError> {
 
         // Remove the target directory if found in a project root.
         // If it's found anywhere else, we add it to the diretories to explore.
-        if let Some(target) = project.target.as_ref().filter(|_| project.root) {
-            println!("{target:?}");
-            fs::remove_dir_all(target).map_err(|_error| FailedToRemoveError(target.to_owned()))?;
-        } else if let Some(target) = project.target {
-            too_explore.push(target);
+        if let Some(target) = project.target {
+            if project.root {
+                println!("{target:?}");
+                fs::remove_dir_all(&target)
+                    .map_err(|_error| FailedToRemoveError(target.clone()))?;
+            } else {
+                too_explore.push(target);
+            }
         }
     }
     Ok(())
